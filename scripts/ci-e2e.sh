@@ -16,13 +16,23 @@ cd "${API_DIR}"
 echo "Building API for E2E..."
 npm run build
 
-if [[ ! -f "dist/main.js" && ! -f "dist/main" ]]; then
-  echo "API build output missing. dist/:"
+MAIN_ENTRY=""
+if [[ -f "dist/main.js" || -f "dist/main" ]]; then
+  MAIN_ENTRY="dist/main"
+elif [[ -f "dist/src/main.js" || -f "dist/src/main" ]]; then
+  MAIN_ENTRY="dist/src/main"
+fi
+
+if [[ -z "${MAIN_ENTRY}" ]]; then
+  echo "API build output missing main entry. dist/:"
   ls -la dist || true
+  echo "dist/src/:"
+  ls -la dist/src || true
   exit 1
 fi
 
-npm run start:prod &
+echo "Starting API from ${MAIN_ENTRY} ..."
+node "${MAIN_ENTRY}" &
 API_PID=$!
 cd - > /dev/null
 
