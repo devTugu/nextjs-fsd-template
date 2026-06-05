@@ -12,7 +12,7 @@ test.describe('Auth and dashboard', () => {
     await page.getByRole('button', { name: 'Sign in' }).click();
 
     await expect(page).toHaveURL(/\/dashboard/, { timeout: 15_000 });
-    await expect(page.getByRole('heading', { name: 'Overview' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Overview' }).first()).toBeVisible();
 
     await page.getByRole('link', { name: 'Users' }).click();
     await expect(page).toHaveURL(/\/dashboard\/users/);
