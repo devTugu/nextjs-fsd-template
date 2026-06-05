@@ -20,6 +20,7 @@ test.describe('Auth and dashboard', () => {
       timeout: 15_000,
     });
 
+    await page.getByRole('button', { name: adminEmail }).click();
     await page.getByText('Log out').click();
     await expect(page).toHaveURL(/\/sign-in/, { timeout: 10_000 });
   });
