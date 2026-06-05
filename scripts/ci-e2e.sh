@@ -13,6 +13,15 @@ cleanup() {
 trap cleanup EXIT
 
 cd "${API_DIR}"
+echo "Building API for E2E..."
+npm run build
+
+if [[ ! -f "dist/main.js" && ! -f "dist/main" ]]; then
+  echo "API build output missing. dist/:"
+  ls -la dist || true
+  exit 1
+fi
+
 npm run start:prod &
 API_PID=$!
 cd - > /dev/null
