@@ -50,14 +50,12 @@ jobs:
         run: |
           echo "E2E against API is documented in README."
           echo "Run locally: docker compose in nestjs-fsd-template, then npm run test:e2e"
-        continue-on-error: true
 
       - run: npm run build
         env:
           NEXT_PUBLIC_API_BASE_URL: http://localhost:3001/api/v1
 
       - run: npm run test:e2e
-        continue-on-error: true
         env:
           NEXT_PUBLIC_API_BASE_URL: http://localhost:3001/api/v1
           E2E_ADMIN_EMAIL: admin@example.com
