@@ -34,29 +34,108 @@ jobs:
     needs: quality
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: rootpassword
+          MYSQL_DATABASE: app_db
+          MYSQL_USER: app_user
+          MYSQL_PASSWORD: app_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      CI: true
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:3001/api/v1
+      E2E_ADMIN_EMAIL: admin@example.com
+      E2E_ADMIN_PASSWORD: Admin123!
+
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/checkout@v4
+        with:
+          repository: devTugu/nestjs-fsd-template
+          path: api
+          ref: main
 
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
 
+      - name: Install API dependencies
+        working-directory: api
+        run: npm ci
+
+      - name: Configure API environment
+        working-directory: api
+        run: |
+          cat > .env <<'EOF'
+          DB_HOST=127.0.0.1
+          DB_PORT=3306
+          DB_USERNAME=app_user
+          DB_PASSWORD=app_password
+          DB_NAME=app_db
+          NODE_ENV=production
+          APP_PORT=3001
+          JWT_ACCESS_SECRET=ci_access_secret_minimum_32_characters
+          JWT_REFRESH_SECRET=ci_refresh_secret_minimum_32_chars
+          JWT_ACCESS_EXPIRES_IN=15m
+          JWT_REFRESH_EXPIRES_IN=7d
+          CORS_ORIGIN=http://localhost:3000
+          THROTTLE_TTL=60
+          THROTTLE_LIMIT=1000
+          SWAGGER_ENABLED=false
+          REDIS_ENABLED=true
+          REDIS_URL=redis://127.0.0.1:6379
+          PERMISSION_CACHE_TTL_SEC=60
+          OTEL_ENABLED=false
+          LOG_LEVEL=error
+          SEED_ADMIN_EMAIL=admin@example.com
+          SEED_ADMIN_PASSWORD=Admin123!
+          EOF
+
+      - name: Build API
+        working-directory: api
+        run: npm run build
+
+      - name: Migrate and seed API
+        working-directory: api
+        run: |
+          for attempt in $(seq 1 30); do
+            if npm run migration:run; then
+              break
+            fi
+            if [[ "${attempt}" -eq 30 ]]; then
+              echo "Database migrations failed"
+              exit 1
+            fi
+            sleep 2
+          done
+          npm run seed
+
       - run: npm ci
 
       - run: npx playwright install --with-deps chromium
 
-      - name: Start API (requires nestjs-fsd-template checkout)
-        run: |
-          echo "E2E against API is documented in README."
-          echo "Run locally: docker compose in nestjs-fsd-template, then npm run test:e2e"
-
       - run: npm run build
-        env:
-          NEXT_PUBLIC_API_BASE_URL: http://localhost:3001/api/v1
 
-      - run: npm run test:e2e
-        env:
-          NEXT_PUBLIC_API_BASE_URL: http://localhost:3001/api/v1
-          E2E_ADMIN_EMAIL: admin@example.com
-          E2E_ADMIN_PASSWORD: Admin123!
+      - name: Run E2E
+        run: bash scripts/ci-e2e.sh
